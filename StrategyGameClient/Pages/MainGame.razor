@@ -1,0 +1,163 @@
+﻿@page "/maingame"
+@using Models
+@using Enums
+@using Blazor.Extensions
+@using Blazor.Extensions.Canvas.Canvas2D
+
+@inject IJSRuntime JsRuntime;
+
+<h1>Warcraft 4</h1>
+<button class="btn btn-primary" @onclick="MoveLeft">
+    Move left
+</button>
+
+<button class="btn btn-primary" @onclick="MoveRight">
+    Move right
+</button>
+
+<div id="canvasContainer" style="position: fixed; opacity: 1; background-color: black; width: 80%; height: 80%">
+    <BECanvas @ref="_canvas"></BECanvas>
+
+    @*@for (int i = 0; i < 16; i++)
+        {
+            <img @ref="plainTiles[i]" hidden src="assets/plaintile.png" />
+    }*@
+
+    <img @ref="plainTiles[0]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[1]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[2]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[3]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[4]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[5]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[6]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[7]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[8]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[9]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[10]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[11]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[12]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[13]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[14]" hidden src="assets/plaintile.png" />
+    <img @ref="plainTiles[15]" hidden src="assets/plaintile.png" />
+
+
+
+    <img @ref="_orcWarrior" hidden src="assets/OrcWarriot.png" />
+</div>
+
+
+
+@code {
+
+    #region INIT TEST GAME
+
+    private Game Game = new Game()
+    {
+        MapShape = MapShape.Hexa,
+        MapWidth = 16,
+    };
+
+    public void InitTestGame()
+    {
+        for (int i = 0; i < 16; i++)
+        {
+            this.Game.Map.Add(new Tile()
+            {
+                Id = Guid.NewGuid(),
+                RenderNumber = i + 1,
+                TerrainType = TerrainType.Plain
+            });
+            this.plainTiles.Add(new ElementReference());
+        }
+
+        this.Game.GameObjects.Add(new GameObject()
+        {
+            Id = Guid.NewGuid(),
+            TypeName = "OrcWarrior",
+            Position = this.Game.Map[4],
+        });
+    }
+
+    #endregion
+
+    #region CONSTANTS
+    static int xPos = 0;
+    static int tileWidth = 74;
+    static int tileHeigth = 60;
+
+    BECanvasComponent _canvas;
+    List<ElementReference> plainTiles = new List<ElementReference>();
+    ElementReference _orcWarrior;
+
+    Canvas2DContext _context;
+
+    #endregion
+
+    private void MoveLeft(MouseEventArgs e)
+    {
+        if (Game.GameObjects.First().Position.RenderNumber > 1)
+            Game.GameObjects.First().Position = Game.Map.SingleOrDefault(y => y.RenderNumber == Game.GameObjects.First().Position.RenderNumber - 1);
+    }
+
+    private void MoveRight(MouseEventArgs e)
+    {
+        if(Game.GameObjects.First().Position.RenderNumber < Game.Map.Count)
+            Game.GameObjects.First().Position = Game.Map.SingleOrDefault(y => y.RenderNumber == Game.GameObjects.First().Position.RenderNumber + 1);
+    }
+
+
+    protected override Task OnInitializedAsync()
+    {
+        this.InitTestGame();
+        return base.OnInitializedAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JsRuntime.InvokeAsync<object>("initGame", DotNetObjectReference.Create(this));
+            _context = await _canvas.CreateCanvas2DAsync();
+        }
+    }
+
+    [JSInvokable]
+    public async ValueTask GameLoop(float timeStamp, int width, int height)
+    {
+        await _context.ClearRectAsync(0, 0, width, height);
+
+        //plainTiles.ForEach(async x =>
+        //{
+        //    await _context.DrawImageAsync(x, xPos, 100, 100, 100);
+        //    xPos += tileWidth;
+        //});
+
+        await _context.DrawImageAsync(plainTiles[0], 1 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[1], 2 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[2], 3 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[3], 4 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[4], 5 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[5], 6 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[6], 7 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[7], 8 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[8], 9 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[9], 10 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[10], 11 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[11], 12 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[12], 13 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[13], 14 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[14], 15 * tileWidth, 0, 100, 100);
+        await _context.DrawImageAsync(plainTiles[15], 16 * tileWidth, 0, 100, 100);
+
+        for (int i = 0; i < Game.Map.Count; i++)
+        {
+            await _context.DrawImageAsync(plainTiles[i], (i + 1) * tileWidth + tileWidth / 2, tileHeigth, 100, 100);
+        };
+
+        int a = (Game.GameObjects.First().Position.RenderNumber % (Game.MapWidth + 1)) * tileWidth;
+        int b = Game.GameObjects.First().Position.RenderNumber / (Game.MapWidth + 1) * tileHeigth;
+        await _context.DrawImageAsync(_orcWarrior, a, b, 80, 80);
+
+
+    }
+}
