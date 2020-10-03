@@ -1,0 +1,16 @@
+﻿@page "/testpage/{gameId}"
+@using System.Net.Http
+@using Models
+@using StrategyGameClient.DTOs.CreateGame;
+@inject HttpClient Http
+
+<h3>TestPage</h3>
+<p>This is just a testpage yo</p>
+@code {
+
+    private Game Game = null;
+
+    [Parameter]
+    public string GameId { get; set; }
+
+}

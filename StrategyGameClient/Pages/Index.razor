@@ -1,8 +1,47 @@
 ﻿@page "/"
 @using Blazor.Extensions
 @using Blazor.Extensions.Canvas.Canvas2D
+@using StrategyGameClient.DTOs;
+@using StrategyGameClient.DTOs.CreateGame;
+@using System.Net.Http
 
+@inject HttpClient Http
 @inject IJSRuntime JsRuntime;
+@inject NavigationManager navigationManager
 
 
-Random page for nothing
+<div>
+    <button @onclick="@StartNewGame">Start game</button>
+</div>
+
+<div>
+    <button @onclick="@GetMap">Get Map</button>
+</div>
+
+
+
+@code {
+    private string player1Id = "f5249879-ad90-41a5-8206-2a03e4c92d1a";
+    private string player2Id = "f5249879-ad90-41a5-8206-2a03e4c92d1b";
+    private string player3Id = "f5249879-ad90-41a5-8206-2a03e4c92d1c";
+
+
+    private string mapId = "197";
+    private string gameId = "6807a453-04c2-4436-9cc1-0bc682ee7e3e";
+
+    [Parameter]
+    public CreateGameDTO createGameDTO { get; set; }
+
+    private async Task StartNewGame()
+    {
+        var DTO = new NewGameDTO(new string[] { player1Id, player2Id, player3Id }, mapId);
+        var resp = await Http.PostAsJsonAsync("engine/newgame", DTO);
+        navigationManager.NavigateTo($"maingame/{gameId}");
+    }
+
+
+    private async Task GetMap()
+    {
+        createGameDTO = await Http.GetFromJsonAsync<CreateGameDTO>("engine/getmap/" + gameId);
+    }
+}

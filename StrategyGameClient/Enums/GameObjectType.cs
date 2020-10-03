@@ -5,12 +5,8 @@ using System.Threading.Tasks;
 
 namespace StrategyGameClient.Enums
 {
-    public enum TerrainType
+    public enum GameObjectType
     {
-        Plain,
-        Water,
-        Magma,
-        Stone,
-        Snow
+        OrcWarrior
     }
 }
