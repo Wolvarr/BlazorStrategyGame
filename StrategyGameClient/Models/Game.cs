@@ -41,10 +41,12 @@ namespace StrategyGameClient.Models
                 this.Players.Add(new Player(x));
             });
 
+            this.CurrentPlayer = this.Players.First();
+
             dto.GameObjects.ForEach(x =>
-            {
-                this.GameObjects.Add(new GameObject(x));
-            });
+                        {
+                            this.GameObjects.Add(new GameObject(x));
+                        });
 
             //setting neighbours
             for (int i = 0; i < dto.Tiles.Count; i++)
@@ -59,25 +61,26 @@ namespace StrategyGameClient.Models
             //setting position for gameobjects
             dto.Players.ForEach(x =>
             {
-               x.Entities.ForEach(y =>
-               {
-                   this.Players.ForEach(z =>
-                   {
-                       z.Game = this;
-                       z.GameObjects.ForEach(go =>
-                       {
-                           go.Game = this;
-                       });
-                       var obj = z.GameObjects.SingleOrDefault(obj => obj.Id == new Guid(y.Id));
-                       if (obj != default)
-                       {
-                           obj.Position = this.Tiles.SingleOrDefault(t => t.Id == new Guid(y.Position));
-                       }
-                   });
-               });
+                x.Entities.ForEach(y =>
+                {
+                    this.Players.ForEach(z =>
+                    {
+                        z.Game = this;
+                        z.GameObjects.ForEach(go =>
+                        {
+                            go.Player = z;
+                            go.Game = this;
+                        });
+                        var obj = z.GameObjects.SingleOrDefault(obj => obj.Id == new Guid(y.Id));
+                        if (obj != default)
+                        {
+                            obj.Position = this.Tiles.SingleOrDefault(t => t.Id == new Guid(y.Position));
+                        }
+                    });
+                });
             });
             dto.GameObjects.ForEach(x =>
-            {   
+            {
                 this.GameObjects.ForEach(y =>
                 {
                     y.Game = this;
@@ -98,15 +101,17 @@ namespace StrategyGameClient.Models
 
         public List<Tile> Tiles { get; set; } = new List<Tile>();
 
+        public Player CurrentPlayer { get; set; }
+
         public List<Player> Players { get; set; } = new List<Player>();
 
         public List<GameObject> GameObjects { get; set; } = new List<GameObject>();
 
         #region RENDERING
 
-        public static int TileWidth = 74;
+        public static int TileWidth = 75;
 
-        public static int TileHeigth = 60;
+        public static int TileHeigth = 67;
 
         public double ScreenPositionX { get; set; }
         public double ScreenPositionY { get; set; }

@@ -11,6 +11,10 @@ namespace StrategyGameClient.Enums
         Water,
         Magma,
         Stone,
-        Snow
+        Snow,
+        Ice,
+        PlainJungle,
+        SnowWoods,
+        MagmaRocks
     }
 }

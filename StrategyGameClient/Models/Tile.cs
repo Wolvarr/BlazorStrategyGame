@@ -35,6 +35,21 @@ namespace StrategyGameClient.Models
                     this.TerrainType = TerrainType.Snow;
                     break;
 
+                case "plainJungle":
+                    this.TerrainType = TerrainType.PlainJungle;
+                    break;
+
+                case "snowwoods":
+                    this.TerrainType = TerrainType.SnowWoods;
+                    break;
+
+                case "magmarocks":
+                    this.TerrainType = TerrainType.MagmaRocks;
+                    break;
+
+                case "ice":
+                    this.TerrainType = TerrainType.Ice;
+                    break;
                 default: throw new Exception("Invalid or not supported map shape");
             }
         }

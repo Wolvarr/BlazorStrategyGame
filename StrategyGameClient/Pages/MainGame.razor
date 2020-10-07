@@ -10,26 +10,38 @@
 @inject IJSRuntime JsRuntime;
 
 <h1>Strat Game</h1>
-<button class="btn btn-primary" @onclick="MoveLeft">
-    Move left
-</button>
+<div>
+    @*@if (this.Game != null && this.Game.CurrentPlayer != null)
+        {
+        <p>GameObjectX = @(this.Game.CurrentPlayer.GameObjects.First().xPosition +  Game.ScreenPositionX) - @(this.Game.CurrentPlayer.GameObjects.First().xPosition +  Game.ScreenPositionX + Game.TileWidth)  </p>
+        <p>GameObjectY = @(this.Game.CurrentPlayer.GameObjects.First().yPosition+ Game.ScreenPositionY ) - @(this.Game.CurrentPlayer.GameObjects.First().yPosition+ Game.ScreenPositionY + Game.TileHeigth)</p>
+        }
 
-<button class="btn btn-primary" @onclick="MoveRight">
-    Move right
-</button>
+        <p>Mouse X = @(tempMouseX - canvasFromLeft) </p>
+        <p>Mouse Y = @(tempMouseY - canvasFromTop)</p>*@
+    @if (selectedGameObject != null)
+    {
+    <p>X position: @(selectedGameObject.xPosition + this.Game.ScreenPositionX) || Y position: @(selectedGameObject.yPosition + this.Game.ScreenPositionY)  ||  type: @selectedGameObject.Type</p>
 
-<div id="canvasContainer" oncontextmenu="return false;" style="position: fixed; opacity: 1; background-color: black; width: 80%; height: 80%" @onmousemove="MoveScreen" @onmouseup="RightMouseUp">
+    }
+</div>
+
+<div id="canvasContainer" oncontextmenu="return false;"  style="position: fixed; left: @canvasFromLeft; top: @canvasFromTop; opacity: 1; background-color: black; width: 80%; height: 80%" @onmousemove="MoveScreen" @onmouseup="RightMouseUp" @onclick="SelectGameObjcet">
     <BECanvas @ref="_canvas">
 
     </BECanvas>
 
     <div>
         <img @ref="_orcWarrior" hidden src="assets/OrcWarrior.png" />
-        <img @ref="_plainTile" hidden src="assets/PlainTile.png" />
-        <img @ref="_waterTile" hidden src="assets/WaterTile.png" />
-        <img @ref="_snowTile" hidden src="assets/SnowTile.png" />
-        <img @ref="_stoneTile" hidden src="assets/StoneTile.png" />
-        <img @ref="_magmaTile" hidden src="assets/MagmaTile.png" />
+        <img @ref="_plainTile" hidden src="assets/Tiles/Plain_Tile.png" />
+        <img @ref="_waterTile" hidden src="assets/Tiles/Water_Tile.png" />
+        <img @ref="_snowTile" hidden src="assets/Tiles/Snow-Tile.png" />
+        <img @ref="_stoneTile" hidden src="assets/Tiles/Stone_tile.png" />
+        <img @ref="_magmaTile" hidden src="assets/Tiles/Magma_Tile.png" />
+        <img @ref="_plainJungleTile" hidden src="assets/Tiles/Plain_Jungle_Tile.png" />
+        <img @ref="_snowWoodsTile" hidden src="assets/Tiles/Snow_Woods_Tile.png" />
+        <img @ref="_magmaRocksTile" hidden src="assets/Tiles/Magma_Rocks_Tile.png" />
+        <img @ref="_iceTile" hidden src="assets/Tiles/Ice_Tile.png" />
 
     </div>
 
@@ -52,25 +64,23 @@
     ElementReference _snowTile;
     ElementReference _stoneTile;
     ElementReference _magmaTile;
+    ElementReference _iceTile;
+    ElementReference _plainJungleTile;
+    ElementReference _snowWoodsTile;
+    ElementReference _magmaRocksTile;
 
     Canvas2DContext _context;
+
+    GameObject selectedGameObject = null;
 
     #endregion
 
     private Game Game = null;
+    double canvasFromLeft = 50;
+    double canvasFromTop = 200;
+    double tempMouseX = 0;
+    double tempMouseY = 0;
 
-
-    private void MoveLeft(MouseEventArgs e)
-    {
-        if (Game.GameObjects.First().Position.RenderNumber > 0)
-            Game.GameObjects.First().Position = Game.Tiles.SingleOrDefault(y => y.RenderNumber == Game.GameObjects.First().Position.RenderNumber - 1);
-    }
-
-    private void MoveRight(MouseEventArgs e)
-    {
-        if (Game.GameObjects.First().Position.RenderNumber < Game.Tiles.Count - 1)
-            Game.GameObjects.First().Position = Game.Tiles.SingleOrDefault(y => y.RenderNumber == Game.GameObjects.First().Position.RenderNumber + 1);
-    }
 
     public double lastButtonPositionX { get; set; } = 0;
 
@@ -93,9 +103,6 @@
             lastButtonPositionY = e.ClientY;
 
         }
-        //Game.ScreenPositionX -= 10;
-        //Game.ScreenPositionY += 0.1;
-
     }
 
     private void RightMouseUp(MouseEventArgs e)
@@ -107,7 +114,26 @@
         }
     }
 
+    private void SelectGameObjcet(MouseEventArgs e)
+    {
+        tempMouseX = e.ClientX;
+        tempMouseY = e.ClientY;
 
+        this.Game.CurrentPlayer.GameObjects.ForEach(x =>
+        {
+            if ((x.xPosition + this.Game.ScreenPositionX) < (e.ClientX - canvasFromLeft) && (x.xPosition + this.Game.ScreenPositionX + Game.TileWidth) > (e.ClientX - canvasFromLeft)
+                    && (x.yPosition + this.Game.ScreenPositionY) < (e.ClientY - canvasFromTop) && (x.yPosition + this.Game.ScreenPositionX + Game.TileWidth * 1.47) > (e.ClientY - canvasFromTop))
+            {
+                this.selectedGameObject = x;
+            }
+
+            else
+            {
+                selectedGameObject = null;
+            }
+
+        });
+    }
     protected override Task OnInitializedAsync()
     {
 
@@ -134,35 +160,59 @@
         {
             if ((Game.Tiles[i].xPosition + Game.ScreenPositionX) < 1440 && (Game.Tiles[i].yPosition + Game.ScreenPositionY) < 880)
             {
-                switch(Game.Tiles[i].TerrainType)
+                switch (Game.Tiles[i].TerrainType)
                 {
                     case TerrainType.Plain:
-                        await _context.DrawImageAsync(_plainTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, 100, 100);
+                        await _context.DrawImageAsync(_plainTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
                         break;
 
                     case TerrainType.Water:
-                        await _context.DrawImageAsync(_waterTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, 100, 100);
+                        await _context.DrawImageAsync(_waterTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY + 8, Game.TileWidth, Game.TileHeigth * 1.47);
                         break;
 
                     case TerrainType.Stone:
-                        await _context.DrawImageAsync(_stoneTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, 100, 100);
+                        await _context.DrawImageAsync(_stoneTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
                         break;
 
                     case TerrainType.Snow:
-                        await _context.DrawImageAsync(_snowTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, 100, 100);
+                        await _context.DrawImageAsync(_snowTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
                         break;
 
                     case TerrainType.Magma:
-                        await _context.DrawImageAsync(_magmaTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, 100, 100);
+                        await _context.DrawImageAsync(_magmaTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY + 8, Game.TileWidth, Game.TileHeigth * 1.47);
+                        break;
+
+                    case TerrainType.PlainJungle:
+                        await _context.DrawImageAsync(_plainJungleTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
+                        break;
+
+                    case TerrainType.SnowWoods:
+                        await _context.DrawImageAsync(_snowWoodsTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
+                        break;
+
+                    case TerrainType.MagmaRocks:
+                        await _context.DrawImageAsync(_magmaRocksTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
+                        break;
+
+                    case TerrainType.Ice:
+                        await _context.DrawImageAsync(_iceTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY + 10, Game.TileWidth, Game.TileHeigth * 1.47);
                         break;
                 }
             }
         };
+        for (int i = 0; i < Game.Players.Count; i++)
+        {
+            for (int j = 0; j < Game.Players[i].GameObjects.Count; j++)
+            {
+                await _context.DrawImageAsync(_orcWarrior, Game.Players[i].GameObjects[j].xPosition + Game.ScreenPositionX,
+                                                                                    Game.Players[i].GameObjects[i].yPosition + Game.ScreenPositionY, Game.TileWidth - 5, Game.TileHeigth - 5);
+            }
+        }
 
         for (int i = 0; i < Game.GameObjects.Count; i++)
         {
             await _context.DrawImageAsync(_orcWarrior, Game.GameObjects[i].xPosition + Game.ScreenPositionX,
-                                                                                Game.GameObjects[i].yPosition + Game.ScreenPositionY, 80, 80);
+                                                                                Game.GameObjects[i].yPosition + Game.ScreenPositionY, Game.TileWidth - 15, Game.TileHeigth - 15);
         }
     }
 }
