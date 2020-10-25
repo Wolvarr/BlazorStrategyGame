@@ -14,11 +14,6 @@ namespace StrategyGameClient.Models
             this.Name = dto.Name;
             this.Gold = dto.Gold;
             this.Ap = dto.Ap;
-
-            dto.Entities.ForEach(x =>
-            {
-                this.GameObjects.Add(new GameObject(x));
-            });
         }
 
         public Guid Id { get; set; }
@@ -30,7 +25,5 @@ namespace StrategyGameClient.Models
         public int Ap { get; set; }
 
         public Game Game { get; set; }
-
-        public List<GameObject> GameObjects { get; set; } = new List<GameObject>();
     }
 }

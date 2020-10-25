@@ -1,0 +1,67 @@
+﻿@page "/auth/register"
+@layout AuthLayout
+@using StrategyGame.Shared.Models.Auth
+@using StrategyGame.Shared.Services
+
+@inject AuthenticationService authService
+@inject NavigationManager navigationManager
+
+<div class="=row">
+    <div class="authcontainer">
+        <h2>Regisztráció</h2>
+        @if (!string.IsNullOrEmpty(infoMessage))
+        {
+            <div class="alert-info">@infoMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert-danger">@errorMessage</div>
+        }
+        <EditForm Model="model" OnValidSubmit="RegisterUser">
+            <DataAnnotationsValidator />
+            <ValidationMessage For="() => model.UserName" />
+            <label for="lastName" class="authInputLabel">UserName</label>
+            <InputText class="authInputField" @bind-Value="model.UserName" name="lastName" id="lastName"></InputText>
+            <ValidationMessage For="() => model.NickName" />
+            <label for="firstName" class="authInputLabel">NickName</label>
+            <InputText class="authInputField" @bind-Value="model.NickName" name="firstName" id="firstName"></InputText>
+            <ValidationMessage For="() => model.Email" />
+            <label for="email" class="authInputLabel">Email</label>
+            <InputText class="authInputField" @bind-Value="model.Email" name="email" id="email"></InputText>
+            <ValidationMessage For="() => model.Password" />
+            <label for="password" class="authInputLabel">Password</label>
+            <InputText class="authInputField" type="password" placeholder="Jelszó" @bind-Value="model.Password" name="password" id="password"></InputText>
+            <ValidationMessage For="() => model.ConfirmPassword" />
+            <label for="conPassword" class="authInputLabel">Confirm Password</label>
+            <InputText class="authInputField" type="password" placeholder="Jelszó" @bind-Value="model.ConfirmPassword" name="confPassword" id="confPassword"></InputText>
+            <button class="authButton" disabled="@isBusy" type="submit">Register</button>
+        </EditForm>
+        <button class="authButton" disabled="@isBusy" @onclick="@LoginRedirect">Login</button>
+    </div>
+</div>
+
+@code {
+    RegisterRequest model = new RegisterRequest();
+
+    bool isBusy = false;
+    string infoMessage = string.Empty;
+    string errorMessage = string.Empty;
+
+    public async Task RegisterUser()
+    {
+        isBusy = true;
+
+        await authService.RegisterUserAsync(model);
+
+        infoMessage = "Sikeres regisztráció";
+        errorMessage = string.Empty;
+        navigationManager.NavigateTo("/auth/login");
+
+        isBusy = false;
+    }
+
+    public void LoginRedirect()
+    {
+        navigationManager.NavigateTo("/auth/login");
+    }
+}

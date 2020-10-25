@@ -1,0 +1,83 @@
+﻿@page "/auth/login"
+@layout AuthLayout
+@using StrategyGame.Shared.Models.Auth
+@using StrategyGame.Shared.Services
+@using StrategyGameClient.Models
+@using Blazored.LocalStorage
+
+@inject AuthenticationService authService
+@inject NavigationManager navigationManager
+@inject ILocalStorageService storageService
+@inject AuthenticationStateProvider authenticationStateProvider;
+
+
+        <div class="=row">
+            <div class="authcontainer">
+                <h2>Bejelentkezés</h2>
+                @if (!string.IsNullOrEmpty(infoMessage))
+                {
+                    <div class="alert-info">@infoMessage</div>
+                }
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert-danger">@errorMessage</div>
+                }
+                <EditForm Model="model" OnValidSubmit="RegisterUser">
+                    <DataAnnotationsValidator />
+                    <ValidationMessage For="() => model.UserName" />
+                    <label for="email" class="authInputLabel">UserName</label>
+                    <InputText class="authInputField" @bind-Value="model.UserName" placeholder="UserName" name="email" id="email"></InputText>
+                    <ValidationMessage For="() => model.Password" />
+                    <label for="password" class="authInputLabel">Password</label>
+                    <InputText class="authInputField" type="password" @bind-Value="model.Password" placeholder="Password" name="password" id="password"></InputText>
+                    <button class="authButton" disabled="@isBusy" type="submit">Login</button>
+                </EditForm>
+                <button class="authButton" disabled="@isBusy" @onclick="RegistrationRedirect">Register</button>
+
+            </div>
+        </div>
+
+
+@code {
+    LoginRequest model = new LoginRequest();
+
+    bool isBusy = false;
+    string infoMessage = string.Empty;
+    string errorMessage = string.Empty;
+
+    public async Task RegisterUser()
+    {
+        isBusy = true;
+
+        var result = await authService.LoginUserAsync(model);
+        if (!string.IsNullOrEmpty(result.Token))
+        {
+            infoMessage = "Sikeres bejelentkezés";
+            errorMessage = string.Empty;
+
+            var userInfo = new LocalUserInfo()
+            {
+                AccesToken = result.Token,
+                Email = result.Email,
+                UserName = result.UserName,
+                NickName = result.NickName,
+                Id = result.Id
+            };
+
+            await storageService.SetItemAsync("User", userInfo);
+            await authenticationStateProvider.GetAuthenticationStateAsync();
+            navigationManager.NavigateTo("/");
+        }
+        else
+        {
+            infoMessage = string.Empty;
+        }
+
+        isBusy = false;
+    }
+
+    public void RegistrationRedirect()
+    {
+        navigationManager.NavigateTo("auth/register");
+    }
+}

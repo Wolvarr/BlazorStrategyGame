@@ -1,5 +1,6 @@
 ﻿using StrategyGameClient.DTOs.CreateGame;
 using StrategyGameClient.Enums;
+using StrategyGameClient.Models.Units;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,6 +31,7 @@ namespace StrategyGameClient.Models
             }
 
             this.MapWidth = dto.MapWidth;
+
             dto.Tiles.ForEach(x =>
             {
                 this.Tiles.Add(new Tile(x));
@@ -38,15 +40,58 @@ namespace StrategyGameClient.Models
 
             dto.Players.ForEach(x =>
             {
-                this.Players.Add(new Player(x));
+                this.Players.Add(new Player(x)
+                {
+                    Game = this
+                });
+                x.Entities.ForEach(obj =>
+                {
+                    switch (obj.Type.ToLower())
+                    {
+                        case "orcwarrior":
+                            {
+                                this.GameObjects.Add(new OrcWarrior(obj)
+                                {
+                                    Player = this.Players.SingleOrDefault(p => p.Id == new Guid(x.Id))
+                                });
+                                break;
+                            }
+
+                        case "knightwarrior":
+                            {
+                                this.GameObjects.Add(new KnightWarrior(obj)
+                                {
+                                    Player = this.Players.SingleOrDefault(p => p.Id == new Guid(x.Id))
+                                });
+                                break;
+                            }
+
+                        default: throw new Exception("Invalid entity type");
+                    }
+                });
             });
 
             this.CurrentPlayer = this.Players.First();
 
             dto.GameObjects.ForEach(x =>
+            {
+                switch (x.Type.ToLower())
+                {
+                    case "orcwarrior":
                         {
-                            this.GameObjects.Add(new GameObject(x));
-                        });
+                            this.GameObjects.Add(new OrcWarrior(x));
+                            break;
+                        }
+
+                    case "knightwarrior":
+                        {
+                            this.GameObjects.Add(new KnightWarrior(x));
+                            break;
+                        }
+
+                    default: throw new Exception("Invalid entity type");
+                }
+            });
 
             //setting neighbours
             for (int i = 0; i < dto.Tiles.Count; i++)
@@ -59,26 +104,6 @@ namespace StrategyGameClient.Models
             }
 
             //setting position for gameobjects
-            dto.Players.ForEach(x =>
-            {
-                x.Entities.ForEach(y =>
-                {
-                    this.Players.ForEach(z =>
-                    {
-                        z.Game = this;
-                        z.GameObjects.ForEach(go =>
-                        {
-                            go.Player = z;
-                            go.Game = this;
-                        });
-                        var obj = z.GameObjects.SingleOrDefault(obj => obj.Id == new Guid(y.Id));
-                        if (obj != default)
-                        {
-                            obj.Position = this.Tiles.SingleOrDefault(t => t.Id == new Guid(y.Position));
-                        }
-                    });
-                });
-            });
             dto.GameObjects.ForEach(x =>
             {
                 this.GameObjects.ForEach(y =>
@@ -90,7 +115,23 @@ namespace StrategyGameClient.Models
                     }
                 });
             });
+
+            dto.Players.ForEach(x =>
+            {
+                x.Entities.ForEach(e =>
+                {
+                    this.GameObjects.ForEach(g =>
+                    {
+                        g.Game = this;
+                        if (g.Id == new Guid(e.Id))
+                        {
+                            g.Position = this.Tiles.SingleOrDefault(t => t.Id == new Guid(e.Position));
+                        }
+                    });
+                });
+            });
         }
+
         public Guid GameId { get; set; }
 
         public string MapName { get; set; }
@@ -107,6 +148,40 @@ namespace StrategyGameClient.Models
 
         public List<GameObject> GameObjects { get; set; } = new List<GameObject>();
 
+        public GameObject AddGameObject(Guid playerId, string entityType, Guid newEntityId, Tile position)
+        {
+            switch (entityType)
+            {
+                case "OrcWarrior":
+                    {
+                        var obj = new OrcWarrior(this.Players.Single(x => x.Id == playerId), newEntityId, position);
+                        this.GameObjects.Add(obj);
+                        return obj;
+                    }
+
+                case "KnightWarrior":
+                    {
+                        var obj = new KnightWarrior(this.Players.Single(x => x.Id == playerId), newEntityId, position);
+                        this.GameObjects.Add(obj);
+                        return obj;
+                    }
+
+                default:
+                    {
+                        throw new Exception("Invalid entity Type");
+                    }
+            }
+        }
+
+        public void EndTurn(Guid playerId)
+        {
+            throw new NotImplementedException("");
+        }
+
+        public void StartTurn(Guid playerId)
+        {
+            throw new NotImplementedException("");
+        }
         #region RENDERING
 
         public static int TileWidth = 75;

@@ -1,8 +1,10 @@
 ﻿@page "/maingame/{gameId}"
 @using Models
 @using Enums;
+@using StrategyGameClient.Models.Units;
 @using System.Net.Http
 @using StrategyGameClient.DTOs.CreateGame;
+@using StrategyGameClient.Models.Move;
 @using Blazor.Extensions
 @using Blazor.Extensions.Canvas.Canvas2D
 
@@ -32,7 +34,8 @@
     </BECanvas>
 
     <div>
-        <img @ref="_orcWarrior" hidden src="assets/OrcWarrior.png" />
+        <img @ref="_orcWarrior1" hidden src="assets/Units/OrkWarrior1.png" />
+        <img @ref="_knightWarrior1" hidden src="assets/Units/KnightWarrior1.png"/>
         <img @ref="_plainTile" hidden src="assets/Tiles/Plain_Tile.png" />
         <img @ref="_waterTile" hidden src="assets/Tiles/Water_Tile.png" />
         <img @ref="_snowTile" hidden src="assets/Tiles/Snow-Tile.png" />
@@ -42,6 +45,7 @@
         <img @ref="_snowWoodsTile" hidden src="assets/Tiles/Snow_Woods_Tile.png" />
         <img @ref="_magmaRocksTile" hidden src="assets/Tiles/Magma_Rocks_Tile.png" />
         <img @ref="_iceTile" hidden src="assets/Tiles/Ice_Tile.png" />
+        <img @ref="_reachableTile" hidden src="assets/Tiles/ReachableTIle.png" />
 
     </div>
 
@@ -57,7 +61,8 @@
 
     BECanvasComponent _canvas;
 
-    ElementReference _orcWarrior;
+    ElementReference _orcWarrior1;
+    ElementReference _knightWarrior1;
 
     ElementReference _plainTile;
     ElementReference _waterTile;
@@ -68,10 +73,12 @@
     ElementReference _plainJungleTile;
     ElementReference _snowWoodsTile;
     ElementReference _magmaRocksTile;
+    ElementReference _reachableTile;
 
     Canvas2DContext _context;
 
     GameObject selectedGameObject = null;
+    List<TileWithDistance> reachableTilesForSelectedGameObject = new List<TileWithDistance>();
 
     #endregion
 
@@ -112,6 +119,15 @@
             lastButtonPositionX = 0;
             lastButtonPositionY = 0;
         }
+        if (selectedGameObject != null)
+        {
+            if (e.Button == 2)
+            {
+                selectedGameObject = null;
+                reachableTilesForSelectedGameObject.Clear();
+                return;
+            }
+        }
     }
 
     private void SelectGameObjcet(MouseEventArgs e)
@@ -119,19 +135,56 @@
         tempMouseX = e.ClientX;
         tempMouseY = e.ClientY;
 
-        this.Game.CurrentPlayer.GameObjects.ForEach(x =>
+        this.Game.GameObjects.Where(x => x.Player == this.Game.CurrentPlayer).ToList().ForEach(x =>
         {
-            if ((x.xPosition + this.Game.ScreenPositionX) < (e.ClientX - canvasFromLeft) && (x.xPosition + this.Game.ScreenPositionX + Game.TileWidth) > (e.ClientX - canvasFromLeft)
-                    && (x.yPosition + this.Game.ScreenPositionY) < (e.ClientY - canvasFromTop) && (x.yPosition + this.Game.ScreenPositionX + Game.TileWidth * 1.47) > (e.ClientY - canvasFromTop))
+            if (selectedGameObject == null)
             {
-                this.selectedGameObject = x;
+                if ((x.xPosition + this.Game.ScreenPositionX) < (e.ClientX - canvasFromLeft) && (x.xPosition + this.Game.ScreenPositionX + Game.TileWidth) > (e.ClientX - canvasFromLeft)
+                        && (x.yPosition + this.Game.ScreenPositionY) < (e.ClientY - canvasFromTop) && (x.yPosition + this.Game.ScreenPositionY + Game.TileHeigth * 1.1) > (e.ClientY - canvasFromTop))
+                {
+                    this.selectedGameObject = x;
+                    if(selectedGameObject is IMoveable)
+                    {
+                        var moveableObject = selectedGameObject as IMoveable;
+                        this.reachableTilesForSelectedGameObject = moveableObject.GetReachableTiles();
+                    }
+                }
             }
 
             else
             {
-                selectedGameObject = null;
+                try
+                {
+                    if (selectedGameObject is IMoveable)
+                    {
+                        this.reachableTilesForSelectedGameObject.ToList().ForEach(x =>
+                        {
+                            if ((x.Tile.xPosition + this.Game.ScreenPositionX) < (e.ClientX - canvasFromLeft) && (x.Tile.xPosition + this.Game.ScreenPositionX + Game.TileWidth) > (e.ClientX - canvasFromLeft)
+                            && (x.Tile.yPosition + this.Game.ScreenPositionY) < (e.ClientY - canvasFromTop) && (x.Tile.yPosition + this.Game.ScreenPositionY + Game.TileHeigth * 1.1) > (e.ClientY - canvasFromTop))
+                            {
+                                var moveableObject = selectedGameObject as IMoveable;
+                                var path = new List<TileWithDistance>();
+                                var currentTile = x;
+                                while (currentTile.ShortestReachFrom != null)
+                                {
+                                    path.Add(currentTile);
+                                    currentTile = currentTile.ShortestReachFrom;
+                                }
+                                if (moveableObject != null)
+                                {
+                                    moveableObject.Move(x.Tile, path);
+                                }
+                                selectedGameObject = null;
+                                reachableTilesForSelectedGameObject.Clear();
+                                return;
+                            }
+                        });
+                    }
+                }catch(Exception exe)
+                {
+                    var asd = exe.Message;
+                };
             }
-
         });
     }
     protected override Task OnInitializedAsync()
@@ -200,19 +253,89 @@
                 }
             }
         };
-        for (int i = 0; i < Game.Players.Count; i++)
+
+        if(this.reachableTilesForSelectedGameObject.Any())
         {
-            for (int j = 0; j < Game.Players[i].GameObjects.Count; j++)
+            for (int i = 0; i < reachableTilesForSelectedGameObject.Count; i++)
             {
-                await _context.DrawImageAsync(_orcWarrior, Game.Players[i].GameObjects[j].xPosition + Game.ScreenPositionX,
-                                                                                    Game.Players[i].GameObjects[i].yPosition + Game.ScreenPositionY, Game.TileWidth - 5, Game.TileHeigth - 5);
+                await _context.DrawImageAsync(_reachableTile, reachableTilesForSelectedGameObject[i].Tile.xPosition + Game.ScreenPositionX,
+                    reachableTilesForSelectedGameObject[i].Tile.yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
             }
         }
 
         for (int i = 0; i < Game.GameObjects.Count; i++)
         {
-            await _context.DrawImageAsync(_orcWarrior, Game.GameObjects[i].xPosition + Game.ScreenPositionX,
-                                                                                Game.GameObjects[i].yPosition + Game.ScreenPositionY, Game.TileWidth - 15, Game.TileHeigth - 15);
+            switch(Game.GameObjects[i].Type)
+            {
+                case GameObjectType.OrcWarrior:
+                    {
+                        var GO = Game.GameObjects[i] as OrcWarrior;
+                        if (!GO.IsMoving)
+                        {
+                            await _context.DrawImageAsync(_orcWarrior1, GO.xPosition + Game.ScreenPositionX + 5,
+                                                                        GO.yPosition + Game.ScreenPositionY, Game.TileWidth -10, Game.TileWidth -10);
+                        }
+                        else
+                        {
+                            await _context.DrawImageAsync(_orcWarrior1, GO.xPosition + Game.ScreenPositionX +5  + ((GO.Steps.First().Tile.xPosition - GO.xPosition) * GO.Steps.First().Progress/20),
+                                                                        GO.yPosition + Game.ScreenPositionY + ((GO.Steps.First().Tile.yPosition - GO.yPosition) * GO.Steps.First().Progress / 20),
+                                                                        Game.TileWidth -10, Game.TileWidth -10);
+                            if (GO.Steps.First() != null)
+                            {
+                                if (GO.Steps.First().Progress < 20)
+                                {
+                                    GO.Steps.First().Progress++;
+                                }
+                                else
+                                {
+                                    GO.Position = GO.Steps.First().Tile;
+                                    GO.Steps.RemoveAt(0);
+                                }
+                            }
+                            if(GO.Steps.Count == 0)
+                            {
+                                GO.IsMoving = false;
+                            }
+                        }
+                        break;
+                    }
+
+                case GameObjectType.KnightWarrior:
+                    {
+                        var GO = Game.GameObjects[i] as KnightWarrior;
+                        if (!GO.IsMoving)
+                        {
+                            await _context.DrawImageAsync(_knightWarrior1, GO.xPosition + Game.ScreenPositionX + 5,
+                                                                        GO.yPosition + Game.ScreenPositionY, Game.TileWidth - 10, Game.TileWidth - 10);
+                        }
+                        else
+                        {
+                            await _context.DrawImageAsync(_knightWarrior1, GO.xPosition + Game.ScreenPositionX + 5 + ((GO.Steps.First().Tile.xPosition - GO.xPosition) * GO.Steps.First().Progress / 20),
+                                                                        GO.yPosition + Game.ScreenPositionY + ((GO.Steps.First().Tile.yPosition - GO.yPosition) * GO.Steps.First().Progress / 20),
+                                                                        Game.TileWidth - 10, Game.TileWidth - 10);
+                            if (GO.Steps.First() != null)
+                            {
+                                if (GO.Steps.First().Progress < 20)
+                                {
+                                    GO.Steps.First().Progress++;
+                                }
+                                else
+                                {
+                                    GO.Position = GO.Steps.First().Tile;
+                                    GO.Steps.RemoveAt(0);
+                                }
+                            }
+                            if (GO.Steps.Count == 0)
+                            {
+                                GO.IsMoving = false;
+                            }
+                        }
+                        break;
+                    }
+
+                default: throw new Exception("Unexpected error");
+            }
+
         }
     }
 }

@@ -11,17 +11,14 @@ namespace StrategyGameClient.Models
 {
     public class GameObject
     {
+
+        public GameObject()
+        {
+
+        }
         public GameObject(CreateGameObjectDTO dto)
         {
-            this.Id = new Guid(dto.Id);
-            switch (dto.Type.ToLower())
-            {
-                case "orcwarrior":
-                    this.Type = GameObjectType.OrcWarrior;
-                    break;
-
-                default: throw new Exception("Invalid or not supported map shape");
-            }
+            this.Id = new Guid(dto.Id);   
         }
 
         public Guid Id { get; set; }
@@ -35,8 +32,6 @@ namespace StrategyGameClient.Models
         public Tile Position { get; set; }
 
         #region RENDERING
-        public ElementReference ElementReference { get; set; }
-
         public double xPosition
         {
             get

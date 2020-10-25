@@ -35,7 +35,7 @@ namespace StrategyGameClient.Models
                     this.TerrainType = TerrainType.Snow;
                     break;
 
-                case "plainJungle":
+                case "plainjungle":
                     this.TerrainType = TerrainType.PlainJungle;
                     break;
 
