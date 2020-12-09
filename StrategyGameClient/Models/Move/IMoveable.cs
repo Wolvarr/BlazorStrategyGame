@@ -1,4 +1,5 @@
-﻿using StrategyGameClient.Communication;
+﻿using StrategyGame.Shared.Communication;
+using StrategyGameClient.Communication;
 using StrategyGameClient.Models.Move;
 using System;
 using System.Collections.Generic;
@@ -11,7 +12,9 @@ namespace StrategyGameClient.Models
     {
         public List<TileWithDistance> GetReachableTiles();
 
-        public BaseCommand Move(Tile tile, List<TileWithDistance> list);
+        public List<CustomCommand> CheckMove(Tile tile, List<TileWithDistance> list);
+
+        public void Move(Tile tile, List<TileWithDistance> list);
 
         public bool IsMoving { get; set; }
 

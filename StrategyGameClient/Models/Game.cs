@@ -1,9 +1,11 @@
-﻿using StrategyGameClient.DTOs.CreateGame;
+﻿using StrategyGame.Shared.Services;
+using StrategyGameClient.DTOs.CreateGame;
 using StrategyGameClient.Enums;
 using StrategyGameClient.Models.Units;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Timers;
 using System.Xml;
 
@@ -11,7 +13,6 @@ namespace StrategyGameClient.Models
 {
     public class Game
     {
-
         public Game(CreateGameDTO dto)
         {
             this.GameId = new Guid(dto.GameId);
@@ -132,6 +133,8 @@ namespace StrategyGameClient.Models
             });
         }
 
+        public GameService gameService { get; set; } = new GameService("http://localhost:51554");
+
         public Guid GameId { get; set; }
 
         public string MapName { get; set; }
@@ -173,9 +176,30 @@ namespace StrategyGameClient.Models
             }
         }
 
-        public void EndTurn(Guid playerId)
+        public void  EndTurn(Guid playerId)
         {
-            throw new NotImplementedException("");
+            if (CurrentPlayer.Id == playerId)
+            {
+                var moveables = this.GameObjects.Where(x => x.Player.Id == playerId).ToList();
+                moveables.ForEach(x =>
+                {
+                    if (x is UnitBase)
+                    {
+                        var unit = x as UnitBase;
+                        unit.Energy = unit.EnergyMax;
+                    }
+                });
+                if ((this.Players.IndexOf(CurrentPlayer) + 1) == this.Players.Count)
+                {
+                    this.CurrentPlayer = this.Players.First();
+                }
+                else
+                    this.CurrentPlayer = this.Players[this.Players.IndexOf(CurrentPlayer) + 1];
+            }
+            else
+            {
+                throw new Exception("Invalid player end turn requested");
+            }
         }
 
         public void StartTurn(Guid playerId)

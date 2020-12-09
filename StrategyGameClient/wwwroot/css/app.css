@@ -97,6 +97,26 @@ app {
                 color: white;
             }
 
+
+/*Index__________________________________________________________________________________________________*/
+.current-lobby-container {
+    border:3px solid black;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.lobby-selector-container {
+    border: 3px solid black;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.create-lobby-container {
+    border: 3px solid black;
+    border-radius: 8px;
+    padding: 10px;
+}
+/*Index__________________________________________________________________________________________________*/
 .content {
     padding-top: 1.1rem;
 }

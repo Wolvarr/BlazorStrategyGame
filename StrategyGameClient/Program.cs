@@ -36,6 +36,10 @@ namespace StrategyGameClient
             {
                 return new LobbyService(GameServerURL);
             });
+            builder.Services.AddScoped(s =>
+            {
+                return new GameService(GameEngineURL);
+            });
 
             builder.Services.AddOptions();
             builder.Services.AddAuthorizationCore();

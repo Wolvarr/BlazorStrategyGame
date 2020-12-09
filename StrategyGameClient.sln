@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.30503.244
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StrategyGameClient", "StrategyGameClient\StrategyGameClient.csproj", "{5176F18E-46CD-465E-99C1-F09F1E458AC7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StrategyGame.Shared", "StrategyGame.Shared\StrategyGame.Shared.csproj", "{F4530FBD-20EA-4EEC-B5C1-71145EA926B7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StrategyGame.Shared", "StrategyGame.Shared\StrategyGame.Shared.csproj", "{F4530FBD-20EA-4EEC-B5C1-71145EA926B7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

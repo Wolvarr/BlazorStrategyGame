@@ -1,25 +1,18 @@
 ﻿@page "/"
-@using Blazor.Extensions
-@using Blazor.Extensions.Canvas.Canvas2D
-@using StrategyGameClient.DTOs;
 @using StrategyGameClient.DTOs.CreateGame;
-@using System.Net.Http
+@using System.Net.Http;
 @using StrategyGame.Shared.Models.Lobby;
+@using StrategyGame.Shared.Models.Events;
+@using System.Threading
+
 
 @inject HttpClient Http
 @inject IJSRuntime JsRuntime;
 @inject LobbyService lobbyService
+@inject GameService gameService
 @inject NavigationManager navigationManager
 @inject ILocalStorageService storageService
 
-
-<div>
-    <button @onclick="@StartNewGame">Start game</button>
-</div>
-
-<div>
-    <button @onclick="@GetMap">Get Map</button>
-</div>
 
 <div class="row">
     <div class="create-lobby-container">
@@ -33,47 +26,53 @@
             <InputNumber class="authInputField" @bind-Value="createLobbyModel.MapId" placeholder="mapId" name="mapId" id="mapId"></InputNumber>
             <button class="authButton" type="submit">Create lobby</button>
         </EditForm>
-        @if (currentLobby != null)
-        {
-            <h1>Current lobby: @currentLobby.LobbyName </h1>
-        }
     </div>
 </div>
 
-
-
-@if (loadedLobbies.Any())
-{
-    <h1>Available lobbies:</h1>
-    @foreach (var lobby in loadedLobbies)
+<div class="row">
+    @if (currentLobby != null && currentLobby.LobbyName != null)
     {
-        <div class="row">
-            <b>@lobby.LobbyName , @lobby.CurrentPlayers / @lobby.Capacity </b>
+        <div class="current-lobby-container">
+            <h1>Current lobby: @currentLobby.LobbyName </h1>
+            <button @onclick="LeaveLobby">LeaveLobby</button>
         </div>
     }
-}
+</div>
 
+<div class="row">
+    @if (currentLobby != null && currentLobby.LobbyName == null)
+    {
+        <div class="lobby-selector-container">
+            <h1>Available lobbies:</h1>
+            <select @onchange="JoinLobby">
+                @if (loadedLobbies.Any())
+                {
+                    <option value="" selected disabled hidden>Choose lobby..</option>
 
+                    @foreach (var lobby in loadedLobbies)
+                    {
+                        <option value="@lobby.Id">@lobby.LobbyName ( @lobby.CurrentPlayers / @lobby.Capacity )</option>
+                    }
+                }
+            </select>
+        </div>
+    }
+</div>
 
 @code {
-    CreateLobbyRequest createLobbyModel = new CreateLobbyRequest();
-
     [CascadingParameter]
     private Task<AuthenticationState> authenticationState { get; set; }
 
-    private string player1Id = "f5249879-ad90-41a5-8206-2a03e4c92d1a";
-    private string player2Id = "f5249879-ad90-41a5-8206-2a03e4c92d1b";
+    CreateLobbyRequest createLobbyModel = new CreateLobbyRequest();
+    private string playerId = string.Empty;
 
-
-    private string mapId = "197";
-    private string gameId = "6807a453-04c2-4436-9cc1-0bc682ee7e3e";
-
-    string accessToken = "";
+    string accessToken = string.Empty;
     private LobbyDTO currentLobby = null;
     private List<LobbyDTO> loadedLobbies = new List<LobbyDTO>();
 
     protected override async Task OnInitializedAsync()
     {
+        playerId = authenticationState.Result.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier).Value;
         accessToken = authenticationState.Result.User.FindFirst("AccesToken").Value;
         loadedLobbies = await lobbyService.GetAllLobbies(accessToken);
         currentLobby = await lobbyService.GetCurrentLobby(accessToken);
@@ -82,21 +81,60 @@
     public async Task CreateLobby()
     {
         await lobbyService.CreateLobby(createLobbyModel, accessToken);
+        this.StateHasChanged();
+        navigationManager.NavigateTo("redirectToIndex");
+        bool pooling = true;
+        while (pooling)
+        {
+            Thread.Sleep(3000);
+            var events = await this.gameService.GetUpdates();
+            if (events.Any())
+            {
+                events.ForEach(x =>
+                {
+                    if (x.Action == "Start game")
+                    {
+                        navigationManager.NavigateTo("maingame/" + x.Parameter1);
+                        pooling = false;
+                    }
+                });
+            }
+        }
+    }
+
+    public async Task JoinLobby(ChangeEventArgs e)
+    {
+        string lobbyId = e.Value.ToString();
+        await lobbyService.JoinLobby(lobbyId, accessToken);
+        this.StateHasChanged();
+        navigationManager.NavigateTo("redirectToIndex");
+        bool pooling = true;
+        while (pooling)
+        {
+            var events = await this.gameService.GetUpdates();
+            if (events.Any())
+            {
+                events.ForEach(x =>
+                {
+                    if (x.Action == "Start game")
+                    {
+                        navigationManager.NavigateTo("maingame/" + x.Parameter1);
+                        pooling = false;
+                    }
+                });
+            }
+            Thread.Sleep(3000);
+        }
+    }
+
+    public async Task LeaveLobby()
+    {
+        string lobbyId = this.currentLobby.Id.ToString();
+        await lobbyService.LeaveLobby(lobbyId, accessToken);
+        this.StateHasChanged();
+        navigationManager.NavigateTo("redirectToIndex");
     }
 
     [Parameter]
     public CreateGameDTO createGameDTO { get; set; }
-
-    private async Task StartNewGame()
-    {
-        var DTO = new NewGameDTO(new string[] { player1Id, player2Id }, mapId);
-        var resp = await Http.PostAsJsonAsync("engine/newgame", DTO);
-        navigationManager.NavigateTo($"maingame/{gameId}");
-    }
-
-
-    private async Task GetMap()
-    {
-        createGameDTO = await Http.GetFromJsonAsync<CreateGameDTO>("engine/getmap/" + gameId);
-    }
 }

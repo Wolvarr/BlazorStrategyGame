@@ -49,7 +49,17 @@
     {
         isBusy = true;
 
-        var result = await authService.LoginUserAsync(model);
+        UserManagerResponse result = null;
+        try
+        {
+            result = await authService.LoginUserAsync(model);
+        }
+        catch (Exception e)
+        {
+            errorMessage = "Invalid login attempt!";
+            return;
+        }
+
         if (!string.IsNullOrEmpty(result.Token))
         {
             infoMessage = "Sikeres bejelentkezés";
@@ -71,6 +81,7 @@
         else
         {
             infoMessage = string.Empty;
+            isBusy = false;
         }
 
         isBusy = false;

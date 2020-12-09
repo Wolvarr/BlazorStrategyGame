@@ -7,35 +7,28 @@
 @using StrategyGameClient.Models.Move;
 @using Blazor.Extensions
 @using Blazor.Extensions.Canvas.Canvas2D
+@using System.Threading
 
 @inject HttpClient Http
+@inject GameService gameService
 @inject IJSRuntime JsRuntime;
 
 <h1>Strat Game</h1>
-<div>
-    @*@if (this.Game != null && this.Game.CurrentPlayer != null)
-        {
-        <p>GameObjectX = @(this.Game.CurrentPlayer.GameObjects.First().xPosition +  Game.ScreenPositionX) - @(this.Game.CurrentPlayer.GameObjects.First().xPosition +  Game.ScreenPositionX + Game.TileWidth)  </p>
-        <p>GameObjectY = @(this.Game.CurrentPlayer.GameObjects.First().yPosition+ Game.ScreenPositionY ) - @(this.Game.CurrentPlayer.GameObjects.First().yPosition+ Game.ScreenPositionY + Game.TileHeigth)</p>
-        }
-
-        <p>Mouse X = @(tempMouseX - canvasFromLeft) </p>
-        <p>Mouse Y = @(tempMouseY - canvasFromTop)</p>*@
-    @if (selectedGameObject != null)
-    {
-    <p>X position: @(selectedGameObject.xPosition + this.Game.ScreenPositionX) || Y position: @(selectedGameObject.yPosition + this.Game.ScreenPositionY)  ||  type: @selectedGameObject.Type</p>
-
-    }
-</div>
-
-<div id="canvasContainer" oncontextmenu="return false;"  style="position: fixed; left: @canvasFromLeft; top: @canvasFromTop; opacity: 1; background-color: black; width: 80%; height: 80%" @onmousemove="MoveScreen" @onmouseup="RightMouseUp" @onclick="SelectGameObjcet">
+@if (Game != null && Game.CurrentPlayer.Id.ToString() == localPlayerId)
+{
+    <button @onclick="EndTurn">EndTurn</button>
+}
+else
+{
+    <button @onclick="CheckMyTurn">Check if my turn</button>
+}
+<div id="canvasContainer" oncontextmenu="return false;" style="position: fixed; left: @canvasFromLeft; top: @canvasFromTop; opacity: 1; background-color: black; width: 80%; height: 80%" @onmousemove="MoveScreen" @onmouseup="RightMouseUp" @onclick="SelectGameObjcet">
     <BECanvas @ref="_canvas">
-
     </BECanvas>
 
     <div>
         <img @ref="_orcWarrior1" hidden src="assets/Units/OrkWarrior1.png" />
-        <img @ref="_knightWarrior1" hidden src="assets/Units/KnightWarrior1.png"/>
+        <img @ref="_knightWarrior1" hidden src="assets/Units/KnightWarrior1.png" />
         <img @ref="_plainTile" hidden src="assets/Tiles/Plain_Tile.png" />
         <img @ref="_waterTile" hidden src="assets/Tiles/Water_Tile.png" />
         <img @ref="_snowTile" hidden src="assets/Tiles/Snow-Tile.png" />
@@ -53,8 +46,13 @@
 
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationState { get; set; }
+
+    int knownUpdatesNumber = 3;
 
     #region CONSTANTS
+    string localPlayerId = string.Empty;
 
     [Parameter]
     public string GameId { get; set; }
@@ -93,6 +91,25 @@
 
     public double lastButtonPositionY { get; set; } = 0;
 
+    private async Task EndTurn()
+    {
+        await this.gameService.EndTurn(this.Game.GameId, this.Game.CurrentPlayer.Id);
+        this.Game.EndTurn(new Guid(localPlayerId));
+        await this.gameService.StartTurn(this.Game.GameId, this.Game.CurrentPlayer.Id);
+    }
+
+    private async Task CheckMyTurn()
+    {
+        bool isMyTurn = await this.gameService.CheckTurn(this.Game.GameId, new Guid(localPlayerId));
+        if (isMyTurn)
+        {
+            var events = await this.gameService.GetUpdates(from: knownUpdatesNumber);
+            this.Game.CurrentPlayer = this.Game.Players.Single(x => x.Id == new Guid(localPlayerId));
+            knownUpdatesNumber += events.Count;
+        }
+    }
+
+
     private void MoveScreen(MouseEventArgs e)
     {
         if (e.Buttons == 2)
@@ -130,7 +147,7 @@
         }
     }
 
-    private void SelectGameObjcet(MouseEventArgs e)
+    private async Task SelectGameObjcet(MouseEventArgs e)
     {
         tempMouseX = e.ClientX;
         tempMouseY = e.ClientY;
@@ -143,7 +160,7 @@
                         && (x.yPosition + this.Game.ScreenPositionY) < (e.ClientY - canvasFromTop) && (x.yPosition + this.Game.ScreenPositionY + Game.TileHeigth * 1.1) > (e.ClientY - canvasFromTop))
                 {
                     this.selectedGameObject = x;
-                    if(selectedGameObject is IMoveable)
+                    if (selectedGameObject is IMoveable)
                     {
                         var moveableObject = selectedGameObject as IMoveable;
                         this.reachableTilesForSelectedGameObject = moveableObject.GetReachableTiles();
@@ -172,6 +189,11 @@
                                 }
                                 if (moveableObject != null)
                                 {
+                                    var commands = moveableObject.CheckMove(x.Tile, path);
+                                    commands.ForEach(async x =>
+                                    {
+                                        await this.gameService.CustomCommand(x);
+                                    });
                                     moveableObject.Move(x.Tile, path);
                                 }
                                 selectedGameObject = null;
@@ -180,7 +202,8 @@
                             }
                         });
                     }
-                }catch(Exception exe)
+                }
+                catch (Exception exe)
                 {
                     var asd = exe.Message;
                 };
@@ -189,7 +212,6 @@
     }
     protected override Task OnInitializedAsync()
     {
-
         return base.OnInitializedAsync();
     }
 
@@ -199,6 +221,7 @@
         {
             var createGameDTO = await Http.GetFromJsonAsync<CreateGameDTO>("engine/getmap/" + this.GameId);
             this.Game = new Game(createGameDTO);
+            this.localPlayerId = authenticationState.Result.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier).Value;
             await JsRuntime.InvokeAsync<object>("initGame", DotNetObjectReference.Create(this));
             _context = await _canvas.CreateCanvas2DAsync();
         }
@@ -207,135 +230,156 @@
     [JSInvokable]
     public async ValueTask GameLoop(float timeStamp, int width, int height)
     {
+
         await _context.ClearRectAsync(0, 0, width, height);
-
-        for (int i = 0; i < Game.Tiles.Count; i++)
+        if (Game.CurrentPlayer.Id.ToString() == localPlayerId)
         {
-            if ((Game.Tiles[i].xPosition + Game.ScreenPositionX) < 1440 && (Game.Tiles[i].yPosition + Game.ScreenPositionY) < 880)
+            for (int i = 0; i < Game.Tiles.Count; i++)
             {
-                switch (Game.Tiles[i].TerrainType)
+                if ((Game.Tiles[i].xPosition + Game.ScreenPositionX) < 1440 && (Game.Tiles[i].yPosition + Game.ScreenPositionY) < 880)
                 {
-                    case TerrainType.Plain:
-                        await _context.DrawImageAsync(_plainTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
-                        break;
+                    switch (Game.Tiles[i].TerrainType)
+                    {
+                        case TerrainType.Plain:
+                            await _context.DrawImageAsync(_plainTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
+                            break;
 
-                    case TerrainType.Water:
-                        await _context.DrawImageAsync(_waterTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY + 8, Game.TileWidth, Game.TileHeigth * 1.47);
-                        break;
+                        case TerrainType.Water:
+                            await _context.DrawImageAsync(_waterTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY + 8, Game.TileWidth, Game.TileHeigth * 1.47);
+                            break;
 
-                    case TerrainType.Stone:
-                        await _context.DrawImageAsync(_stoneTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
-                        break;
+                        case TerrainType.Stone:
+                            await _context.DrawImageAsync(_stoneTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
+                            break;
 
-                    case TerrainType.Snow:
-                        await _context.DrawImageAsync(_snowTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
-                        break;
+                        case TerrainType.Snow:
+                            await _context.DrawImageAsync(_snowTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
+                            break;
 
-                    case TerrainType.Magma:
-                        await _context.DrawImageAsync(_magmaTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY + 8, Game.TileWidth, Game.TileHeigth * 1.47);
-                        break;
+                        case TerrainType.Magma:
+                            await _context.DrawImageAsync(_magmaTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY + 8, Game.TileWidth, Game.TileHeigth * 1.47);
+                            break;
 
-                    case TerrainType.PlainJungle:
-                        await _context.DrawImageAsync(_plainJungleTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
-                        break;
+                        case TerrainType.PlainJungle:
+                            await _context.DrawImageAsync(_plainJungleTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
+                            break;
 
-                    case TerrainType.SnowWoods:
-                        await _context.DrawImageAsync(_snowWoodsTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
-                        break;
+                        case TerrainType.SnowWoods:
+                            await _context.DrawImageAsync(_snowWoodsTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
+                            break;
 
-                    case TerrainType.MagmaRocks:
-                        await _context.DrawImageAsync(_magmaRocksTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
-                        break;
+                        case TerrainType.MagmaRocks:
+                            await _context.DrawImageAsync(_magmaRocksTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
+                            break;
 
-                    case TerrainType.Ice:
-                        await _context.DrawImageAsync(_iceTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY + 10, Game.TileWidth, Game.TileHeigth * 1.47);
-                        break;
+                        case TerrainType.Ice:
+                            await _context.DrawImageAsync(_iceTile, Game.Tiles[i].xPosition + Game.ScreenPositionX, Game.Tiles[i].yPosition + Game.ScreenPositionY + 10, Game.TileWidth, Game.TileHeigth * 1.47);
+                            break;
+                    }
+                }
+            };
+
+            if (this.reachableTilesForSelectedGameObject.Any())
+            {
+                for (int i = 0; i < reachableTilesForSelectedGameObject.Count; i++)
+                {
+                    await _context.DrawImageAsync(_reachableTile, reachableTilesForSelectedGameObject[i].Tile.xPosition + Game.ScreenPositionX,
+                        reachableTilesForSelectedGameObject[i].Tile.yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
                 }
             }
-        };
 
-        if(this.reachableTilesForSelectedGameObject.Any())
-        {
-            for (int i = 0; i < reachableTilesForSelectedGameObject.Count; i++)
+            for (int i = 0; i < Game.GameObjects.Count; i++)
             {
-                await _context.DrawImageAsync(_reachableTile, reachableTilesForSelectedGameObject[i].Tile.xPosition + Game.ScreenPositionX,
-                    reachableTilesForSelectedGameObject[i].Tile.yPosition + Game.ScreenPositionY, Game.TileWidth, Game.TileHeigth * 1.47);
+                switch (Game.GameObjects[i].Type)
+                {
+                    case GameObjectType.OrcWarrior:
+                        {
+                            var GO = Game.GameObjects[i] as OrcWarrior;
+                            if (!GO.IsMoving)
+                            {
+                                await _context.DrawImageAsync(_orcWarrior1, GO.xPosition + Game.ScreenPositionX + 5,
+                                                                            GO.yPosition + Game.ScreenPositionY, Game.TileWidth - 10, Game.TileWidth - 10);
+                            }
+                            else
+                            {
+                                await _context.DrawImageAsync(_orcWarrior1, GO.xPosition + Game.ScreenPositionX + 5 + ((GO.Steps.First().Tile.xPosition - GO.xPosition) * GO.Steps.First().Progress / 20),
+                                                                            GO.yPosition + Game.ScreenPositionY + ((GO.Steps.First().Tile.yPosition - GO.yPosition) * GO.Steps.First().Progress / 20),
+                                                                            Game.TileWidth - 10, Game.TileWidth - 10);
+                                if (GO.Steps.First() != null)
+                                {
+                                    if (GO.Steps.First().Progress < 20)
+                                    {
+                                        GO.Steps.First().Progress++;
+                                    }
+                                    else
+                                    {
+                                        GO.Position = GO.Steps.First().Tile;
+                                        GO.Steps.RemoveAt(0);
+                                    }
+                                }
+                                if (GO.Steps.Count == 0)
+                                {
+                                    GO.IsMoving = false;
+                                }
+                            }
+                            break;
+                        }
+
+                    case GameObjectType.KnightWarrior:
+                        {
+                            var GO = Game.GameObjects[i] as KnightWarrior;
+                            if (!GO.IsMoving)
+                            {
+                                await _context.DrawImageAsync(_knightWarrior1, GO.xPosition + Game.ScreenPositionX + 5,
+                                                                            GO.yPosition + Game.ScreenPositionY, Game.TileWidth - 10, Game.TileWidth - 10);
+                            }
+                            else
+                            {
+                                await _context.DrawImageAsync(_knightWarrior1, GO.xPosition + Game.ScreenPositionX + 5 + ((GO.Steps.First().Tile.xPosition - GO.xPosition) * GO.Steps.First().Progress / 20),
+                                                                            GO.yPosition + Game.ScreenPositionY + ((GO.Steps.First().Tile.yPosition - GO.yPosition) * GO.Steps.First().Progress / 20),
+                                                                            Game.TileWidth - 10, Game.TileWidth - 10);
+                                if (GO.Steps.First() != null)
+                                {
+                                    if (GO.Steps.First().Progress < 20)
+                                    {
+                                        GO.Steps.First().Progress++;
+                                    }
+                                    else
+                                    {
+                                        GO.Position = GO.Steps.First().Tile;
+                                        GO.Steps.RemoveAt(0);
+                                    }
+                                }
+                                if (GO.Steps.Count == 0)
+                                {
+                                    GO.IsMoving = false;
+                                }
+                            }
+                            break;
+                        }
+
+                    default: throw new Exception("Unexpected error");
+                }
+
+
             }
         }
-
-        for (int i = 0; i < Game.GameObjects.Count; i++)
+        else
         {
-            switch(Game.GameObjects[i].Type)
-            {
-                case GameObjectType.OrcWarrior:
-                    {
-                        var GO = Game.GameObjects[i] as OrcWarrior;
-                        if (!GO.IsMoving)
-                        {
-                            await _context.DrawImageAsync(_orcWarrior1, GO.xPosition + Game.ScreenPositionX + 5,
-                                                                        GO.yPosition + Game.ScreenPositionY, Game.TileWidth -10, Game.TileWidth -10);
-                        }
-                        else
-                        {
-                            await _context.DrawImageAsync(_orcWarrior1, GO.xPosition + Game.ScreenPositionX +5  + ((GO.Steps.First().Tile.xPosition - GO.xPosition) * GO.Steps.First().Progress/20),
-                                                                        GO.yPosition + Game.ScreenPositionY + ((GO.Steps.First().Tile.yPosition - GO.yPosition) * GO.Steps.First().Progress / 20),
-                                                                        Game.TileWidth -10, Game.TileWidth -10);
-                            if (GO.Steps.First() != null)
-                            {
-                                if (GO.Steps.First().Progress < 20)
-                                {
-                                    GO.Steps.First().Progress++;
-                                }
-                                else
-                                {
-                                    GO.Position = GO.Steps.First().Tile;
-                                    GO.Steps.RemoveAt(0);
-                                }
-                            }
-                            if(GO.Steps.Count == 0)
-                            {
-                                GO.IsMoving = false;
-                            }
-                        }
-                        break;
-                    }
+            //bool pooling = true;
+            //while (pooling)
+            //{
+            //    bool isMyTurn = await this.gameService.CheckTurn(this.Game.GameId, new Guid(localPlayerId));
+            //    if (isMyTurn)
+            //    {
+            //        pooling = false;
+            //        var events = await this.gameService.GetUpdates(from: knownUpdatesNumber);
+            //        this.Game.CurrentPlayer = this.Game.Players.Single(x => x.Id == new Guid(localPlayerId));
+            //        knownUpdatesNumber += events.Count;
+            //    }
 
-                case GameObjectType.KnightWarrior:
-                    {
-                        var GO = Game.GameObjects[i] as KnightWarrior;
-                        if (!GO.IsMoving)
-                        {
-                            await _context.DrawImageAsync(_knightWarrior1, GO.xPosition + Game.ScreenPositionX + 5,
-                                                                        GO.yPosition + Game.ScreenPositionY, Game.TileWidth - 10, Game.TileWidth - 10);
-                        }
-                        else
-                        {
-                            await _context.DrawImageAsync(_knightWarrior1, GO.xPosition + Game.ScreenPositionX + 5 + ((GO.Steps.First().Tile.xPosition - GO.xPosition) * GO.Steps.First().Progress / 20),
-                                                                        GO.yPosition + Game.ScreenPositionY + ((GO.Steps.First().Tile.yPosition - GO.yPosition) * GO.Steps.First().Progress / 20),
-                                                                        Game.TileWidth - 10, Game.TileWidth - 10);
-                            if (GO.Steps.First() != null)
-                            {
-                                if (GO.Steps.First().Progress < 20)
-                                {
-                                    GO.Steps.First().Progress++;
-                                }
-                                else
-                                {
-                                    GO.Position = GO.Steps.First().Tile;
-                                    GO.Steps.RemoveAt(0);
-                                }
-                            }
-                            if (GO.Steps.Count == 0)
-                            {
-                                GO.IsMoving = false;
-                            }
-                        }
-                        break;
-                    }
-
-                default: throw new Exception("Unexpected error");
-            }
-
+            //    Thread.Sleep(10000);
+            //}
         }
     }
 }

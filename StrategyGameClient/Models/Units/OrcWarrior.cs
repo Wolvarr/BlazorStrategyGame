@@ -1,4 +1,4 @@
-﻿using StrategyGameClient.Communication;
+﻿using StrategyGame.Shared.Communication;
 using StrategyGameClient.DTOs.CreateGame;
 using StrategyGameClient.Enums;
 using StrategyGameClient.Models.Move;
@@ -119,9 +119,29 @@ namespace StrategyGameClient.Models.Units
             return tileList;
         }
 
-        public BaseCommand Move(Tile tile, List<TileWithDistance> path )
+
+        public List<CustomCommand> CheckMove(Tile tile, List<TileWithDistance> path)
+        {
+            var commands = new List<CustomCommand>();
+            for (int i = path.Count; i > 0; i--)
+            {
+
+                commands.Add(new CustomCommand
+                {
+                    ActionType = "OrcWarrior_MoveAction",
+                    GameId = this.Game.GameId,
+                    PlayerId = this.Player.Id,
+                    Params = $"{{ 'host' : '{this.Id}', 'target' : '{path[i-1].Tile.Id}' }}"
+                });
+            }
+
+            return commands;
+        }
+
+        public void Move(Tile tile, List<TileWithDistance> path )
         {
             this.IsMoving = true;
+
             for (int i = path.Count; i > 0; i--)
             {
                 this.MoveCost.TryGetValue(path[i - 1].Tile.TerrainType, out int moveCost);
@@ -131,10 +151,7 @@ namespace StrategyGameClient.Models.Units
                     this.Steps.Add(new TileToStep(path[i - 1].Tile));
                 }
                 else throw new Exception("Invalid move");
-
             }
-
-            return null;
         }
     }
 }

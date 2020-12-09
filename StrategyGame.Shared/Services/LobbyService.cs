@@ -43,6 +43,20 @@ namespace StrategyGame.Shared.Services
             return;
         }
 
+        public async Task JoinLobby(string lobbyId, string accessToken)
+        {
+            client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            var result = await client.PostAsync($"{baseUrl}/api/lobby/join/{lobbyId}", new StringContent(lobbyId, Encoding.UTF8, "application/json"));
+            return;
+        }
 
+        public async Task LeaveLobby(string lobbyId, string accessToken)
+        {
+            client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            var result = await client.PostAsync($"{baseUrl}/api/lobby/leave/{lobbyId}", new StringContent(lobbyId, Encoding.UTF8, "application/json"));
+            return;
+        }
     }
 }
